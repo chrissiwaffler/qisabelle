@@ -4,14 +4,14 @@ import mill._, scalalib._
 // otherwise VSCode doesn't find it.
 
 object server extends ScalaModule {
-  def scalaVersion = "2.13.10"
+  def scalaVersion = "2.13.14"
 
   def scalacOptions: T[Seq[String]] = Seq("-deprecation", "-Xfatal-warnings")
 
   def ivyDeps = Agg(
-    ivy"com.lihaoyi::os-lib:0.9.1",
-    ivy"com.lihaoyi::cask:0.9.1",
-    // ivy"com.lihaoyi::scalatags:0.8.2",
+    ivy"com.lihaoyi::os-lib:0.10.2",
+    ivy"com.lihaoyi::cask:0.9.2",
+    // ivy"com.lihaoyi::scalatags:0.13.1",
     // ivy"de.unruh::scala-isabelle::v0.4.2",
     ivy"de.unruh::scala-isabelle:master-SNAPSHOT",
     // resolvers ++= Resolver.sonatypeOssRepos("snapshots"),
@@ -20,8 +20,8 @@ object server extends ScalaModule {
   object test extends ScalaTests {
     def testFramework = "org.scalatest.tools.Framework"
     def ivyDeps = Agg(
-      ivy"org.scalatest::scalatest:3.1.1",
-      ivy"com.lihaoyi::requests::0.6.9"
+      ivy"org.scalatest::scalatest:3.2.18",
+      ivy"com.lihaoyi::requests::0.8.3"
     )
   }
 }

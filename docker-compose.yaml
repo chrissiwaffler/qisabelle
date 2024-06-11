@@ -4,10 +4,10 @@ services:
       context: .
       dockerfile: ServerDockerfile
     volumes:
-      - ./afp_$AFP_ID:/afp:ro
-      - ./dockerheaps/Isabelle2023_afp_$AFP_ID:/home/isabelle/Isabelle/heaps:ro
+      - ./afp_$AFP_ID:/afp:ro,z
+      - ./dockerheaps/Isabelle2024_afp_$AFP_ID:/home/isabelle/Isabelle/heaps:ro,z
     deploy:
       mode: replicated
       replicas: 1
     ports:
-    - "127.0.0.1:17000-17000:17000/tcp"
+    - "127.0.0.1:17000:17000/tcp"

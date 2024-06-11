@@ -20,7 +20,7 @@ class ExampleAPITests extends AnyFunSuite {
   test("exampleAPITest1") {
     withServer { hostUrl =>
       val success = requests.get(hostUrl)
-      assert(success.text() == "Hello World!")
+      assert(success.text() == "Hello from QIsabelle")
       assert(success.statusCode == 200)
     }
   }

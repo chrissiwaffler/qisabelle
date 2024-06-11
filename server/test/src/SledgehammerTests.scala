@@ -14,7 +14,7 @@ class SledgehammerTests extends TestEnvironment {
     withTheory(afpThysDir / "Verified_SAT_Based_AI_Planning" / "STRIPS_Semantics.thy") {
       (session: IsabelleSession, parsedTheory: ParsedTheory) =>
         implicit val isabelle = session.isabelle
-        val sledgehammer      = new Sledgehammer(15.seconds, 20.seconds, 20.seconds)
+        val sledgehammer      = new Sledgehammer(30.seconds, 35.seconds, 40.seconds)
 
         var state = parsedTheory.executeUntil(lemma, inclusive = true, nDebug = 2)
         val (outcome, proofTextOrMsg) = sledgehammer.run(state)
@@ -51,7 +51,7 @@ class SledgehammerTests extends TestEnvironment {
     withTheory(afpThysDir / "Binomial-Heaps" / "SkewBinomialHeap.thy") {
       (session: IsabelleSession, parsedTheory: ParsedTheory) =>
         implicit val isabelle = session.isabelle
-        val sledgehammer      = new Sledgehammer(15.seconds, 20.seconds, 20.seconds)
+        val sledgehammer      = new Sledgehammer(30.seconds, 35.seconds, 40.seconds)
 
         var state = parsedTheory.executeUntil(firstLemma, inclusive = false, nDebug = 2)
 
@@ -87,7 +87,7 @@ class SledgehammerTests extends TestEnvironment {
     withTheory(isabelleDir / "src" / "HOL" / "Examples" / "Adhoc_Overloading_Examples.thy") {
       (session: IsabelleSession, parsedTheory: ParsedTheory) =>
         implicit val isabelle = session.isabelle
-        val sledgehammer      = new Sledgehammer(35.seconds, 40.seconds, 40.seconds)
+        val sledgehammer      = new Sledgehammer(60.seconds, 70.seconds, 80.seconds)
 
         var state = parsedTheory.executeUntil(lemma, inclusive = true, nDebug = 10000)
         state = session.parseAndExecute("using assms", state)
@@ -95,8 +95,8 @@ class SledgehammerTests extends TestEnvironment {
         val (outcome, proofTextOrMsg) =
           sledgehammer.run(state, addedFacts = List("MOST_iff_finiteNeg"))
         assert(outcome == Sledgehammer.Outcomes.Some)
-        assert(proofTextOrMsg.startsWith("by "))
-        // "by (simp add: MOST_iff_finiteNeg perms_def)"
+        assert(proofTextOrMsg.startsWith("by ") || proofTextOrMsg.startsWith("using "))
+        // "by (simp add: MOST_iff_finiteNeg perms_def)" or "using eventually_cofinite perms_def by fastforce"
         state = session.parseAndExecute(proofTextOrMsg, state)
         assert(state.isTheoryMode && state.proofStateDescription == "")
 

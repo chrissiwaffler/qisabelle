@@ -1,8 +1,8 @@
-FROM  makarius/isabelle:Isabelle2023
+FROM  makarius/isabelle:Isabelle2024
 # https://hub.docker.com/r/makarius/isabelle
 
 ARG SCALA_VERSION
-ENV SCALA_VERSION ${SCALA_VERSION:-2.13.10}
+ENV SCALA_VERSION ${SCALA_VERSION:-2.13.14}
 
 USER root
 
@@ -14,20 +14,20 @@ RUN apt-get update && \
 RUN adduser isabelle sudo
 
 # USER isabelle
-# RUN curl -fsL https://isabelle.in.tum.de/dist/Isabelle2023_linux.tar.gz > Isabelle.tar.gz
-# RUN tar xzf Isabelle.tar.gz && rm Isabelle.tar.gz && mv Isabelle2023 Isabelle
+# RUN curl -fsL https://isabelle.in.tum.de/dist/Isabelle2024_linux.tar.gz > Isabelle.tar.gz
+# RUN tar xzf Isabelle.tar.gz && rm Isabelle.tar.gz && mv Isabelle2024 Isabelle
 # # RUN sed -i -e 's@ISABELLE_HOME_USER=.*@ISABELLE_HOME_USER="/isa"@g' Isabelle/etc/settings
 # RUN Isabelle/bin/isabelle build -b HOL
 # USER root
 RUN ln -sT /home/isabelle/Isabelle/bin/isabelle /usr/local/bin/isabelle
 
-# Install Java 17 from Eclipse Adoptium.
+# Install Java 21 from Eclipse Adoptium.
 RUN mkdir -p /etc/apt/keyrings
 RUN curl -fs https://packages.adoptium.net/artifactory/api/gpg/key/public | tee /etc/apt/keyrings/adoptium.asc
 RUN echo "deb [signed-by=/etc/apt/keyrings/adoptium.asc] https://packages.adoptium.net/artifactory/deb \
     $(awk -F= '/^VERSION_CODENAME/{print$2}' /etc/os-release) main" | tee /etc/apt/sources.list.d/adoptium.list
 RUN apt-get update && \
-    apt-get install -y temurin-17-jdk && \
+    apt-get install -y temurin-21-jdk && \
     apt-get clean
 
 # Install Scala (and warm up cache).
@@ -37,11 +37,11 @@ RUN curl -fsL https://downloads.typesafe.com/scala/$SCALA_VERSION/scala-$SCALA_V
     echo "println(util.Properties.versionMsg)" > test.scala && scala test.scala && rm test.scala
 
 # Install mill (alternative build system for scala, simpler than sbt; also warm up cache).
-RUN curl -fsL https://github.com/com-lihaoyi/mill/releases/download/0.11.1/0.11.1 > /usr/local/bin/mill && \
+RUN curl -fsL https://github.com/com-lihaoyi/mill/releases/download/0.11.7/0.11.7 > /usr/local/bin/mill && \
     chmod ugo+x /usr/local/bin/mill && \
     touch build.sc && mill -i resolve _ && rm build.sc
 
-# Install scala-isabelle branch (optional).
+# Install scala-isabelle branch (optional, you can use version v0.4.2 in build.sc instead, with Java 17).
 ## Install sbt.
 RUN echo "deb https://repo.scala-sbt.org/scalasbt/debian all main" | tee /etc/apt/sources.list.d/sbt.list && \
     echo "deb https://repo.scala-sbt.org/scalasbt/debian /" | tee /etc/apt/sources.list.d/sbt_old.list
@@ -56,8 +56,9 @@ RUN mkdir /scala-isabelle
 RUN chown isabelle:isabelle /scala-isabelle
 USER isabelle
 WORKDIR /scala-isabelle
-RUN git clone https://github.com/dominique-unruh/scala-isabelle.git /scala-isabelle
-RUN git switch master
+RUN git clone -b test2024 --single-branch https://github.com/marcinwrochna/scala-isabelle.git /scala-isabelle
+# RUN git clone -b master --single-branch  https://github.com/dominique-unruh/scala-isabelle.git /scala-isabelle
+# RUN echo "sbt.version = 1.10.0" >project/build.properties  # Bump sbt version to allow working with Java 21.
 RUN sbt publishLocal
 # End of optional install of scala-isabelle branch.
 
@@ -86,7 +87,7 @@ ENV QISABELLE_HOST="0.0.0.0"
 ENV QISABELLE_PORT=17000
 EXPOSE 17000
 
-# RUN mill server.test
+# RUN mill server.test  # Only a few tests that don't require mounts can be done here.
 
 ENTRYPOINT []
 CMD ["java", "-jar", "out/server/assembly.dest/out.jar"]

@@ -37,6 +37,44 @@ class IsabelleSessionTests extends TestEnvironment {
     }
   }
 
+  test("AFP imports in heap") {
+    // Since we load the Graph_Theory session, parser initialization should be relatively fast (though still a dozen seconds),
+    // even if ~/.isabelle/ is empty.
+    withIsabelleSession("Graph_Theory", Seq(afpThysDir)) { session =>
+      implicit val isabelle = session.isabelle
+
+      val imports =
+        Seq(
+          "Main",
+          "Graph_Theory.Digraph"
+        )
+      val importedTheories =
+        ParsedTheory.loadImports(imports, "HOL", onlyFromSessionHeap = false, debug = true)
+      val theory = Theory.mergeTheories("Foo", endTheory = false, theories = importedTheories)
+      var state  = ToplevelState(theory)
+      assert(state.isTheoryMode)
+    }
+  }
+
+  test("AFP imports not in heap") {
+    // Since we dont't load any session including Digraphs, parser initialization will be very slow here,
+    // unless it was already done and saved to ~/.isabelle/.
+    withIsabelleSession("HOL", Seq(afpThysDir)) { session =>
+      implicit val isabelle = session.isabelle
+
+      val imports =
+        Seq(
+          "Main",
+          "Graph_Theory.Digraph"
+        )
+      val importedTheories =
+        ParsedTheory.loadImports(imports, "HOL", onlyFromSessionHeap = false, debug = true)
+      val theory = Theory.mergeTheories("Foo", endTheory = false, theories = importedTheories)
+      var state  = ToplevelState(theory)
+      assert(state.isTheoryMode)
+    }
+  }
+
   test("New theory with imports not in heap") {
     withIsabelleSession("HOL", Seq()) { session =>
       implicit val isabelle = session.isabelle
@@ -59,40 +97,6 @@ class IsabelleSessionTests extends TestEnvironment {
 
       val proof = "using prime_gt_1_nat by simp"
       state = session.parseAndExecute(proof, state)
-      assert(state.isTheoryMode)
-    }
-  }
-
-  test("AFP imports not in heap") {
-    withIsabelleSession("HOL", Seq(afpThysDir)) { session =>
-      implicit val isabelle = session.isabelle
-
-      val imports =
-        Seq(
-          "Main",
-          "Graph_Theory.Digraph"
-        )
-      val importedTheories =
-        ParsedTheory.loadImports(imports, "HOL", onlyFromSessionHeap = false, debug = true)
-      val theory = Theory.mergeTheories("Foo", endTheory = false, theories = importedTheories)
-      var state  = ToplevelState(theory)
-      assert(state.isTheoryMode)
-    }
-  }
-
-  test("AFP imports in heap") {
-    withIsabelleSession("Graph_Theory", Seq(afpThysDir)) { session =>
-      implicit val isabelle = session.isabelle
-
-      val imports =
-        Seq(
-          "Main",
-          "Graph_Theory.Digraph"
-        )
-      val importedTheories =
-        ParsedTheory.loadImports(imports, "HOL", onlyFromSessionHeap = false, debug = true)
-      val theory = Theory.mergeTheories("Foo", endTheory = false, theories = importedTheories)
-      var state  = ToplevelState(theory)
       assert(state.isTheoryMode)
     }
   }
@@ -146,7 +150,7 @@ class IsabelleSessionTests extends TestEnvironment {
   }
 
   test("Missing fact") {
-    // We fork states to check facts proved in one are not visible in the other.
+    // We fork states to check that facts proved in one are not visible in the other.
     // Right state will prove first lemma.
     // Left state will try to prove second lemma with an undefined reference to first.
     // This should fail, even if the right state is already computed.
@@ -187,7 +191,7 @@ class IsabelleSessionTests extends TestEnvironment {
   }
 
   test("Bad fact") {
-    // We fork states to check facts proved in one are not visible in the other.
+    // We fork states to check that facts proved in one are not visible in the other.
     // Right state will prove first lemma.
     // Left state will try to prove a different first lemma under the same name,
     // and a second lemma with an undefined reference to first.

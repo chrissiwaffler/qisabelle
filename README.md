@@ -50,7 +50,7 @@ It should be easy to use from any language, see `client/session.py` for a Python
 
 ## Setup
 ### 0. Requirements
-Python ≥3.10, docker, curl, brotli (for decompressing, install it with your system's package manager).<br>
+Python ≥3.10, docker or podman, curl, brotli (for decompressing, install it with your system's package manager).<br>
 You do not need to install Isabelle, scala, or Java, as they are included in the container.
 
 ### 1. Clone the repo
@@ -67,7 +67,7 @@ A heap is a saved memory state of the Isabelle/ML process, usually after fully e
 They are too large to be included in a docker image, so pre-built heaps of all of [AFP](https://www.isa-afp.org/) are available for download.
 These take 40GB after decompression (and 7GB more is temporarily needed for the compressed download).
 
-By default, QIsabelle uses heaps from the main 2023 (September) AFP release (`2023_01bf5fad3e59`).
+By default, QIsabelle uses heaps from the main 2024 (May) AFP release (`2024_361b8b643a1d`).
 (Alternatively, you can choose a different one from [this page](https://u363828-sub1:7K5XEQ7RDqvbjY8v@u363828-sub1.your-storagebox.de/)
 and modify the `.env` file accordingly,
 or build a heap yourself from any AFP version: see *Building your own heap* below).
@@ -83,9 +83,9 @@ or build a heap yourself from any AFP version: see *Building your own heap* belo
     mkdir dockerheaps
     cd dockerheaps
     # Download an decompress heaps.
-    curl -u u363828-sub1:7K5XEQ7RDqvbjY8v https://u363828-sub1.your-storagebox.de/Isabelle2023_afp_$AFP_ID.tar.br -O
-    tar --use-compress-program=brotli -xf Isabelle2023_afp_$AFP_ID.tar.br
-    rm Isabelle2023_afp_$AFP_ID.tar.br
+    curl -u u363828-sub1:7K5XEQ7RDqvbjY8v https://u363828-sub1.your-storagebox.de/Isabelle2024_afp_$AFP_ID.tar.br -O
+    tar --use-compress-program=brotli -xf Isabelle2024_afp_$AFP_ID.tar.br
+    rm Isabelle2024_afp_$AFP_ID.tar.br
     cd ..
 ```
 
@@ -96,7 +96,7 @@ qisabelle
 │   └── thys
 ├── client
 ├── dockerheaps
-│   └── Isabelle2023_afp_$AFP_ID
+│   └── Isabelle2024_afp_$AFP_ID
 │       └── polyml-5.9_x86_64_32-linux
 └── server
 ```
@@ -106,16 +106,20 @@ On port 17000 (change `docker-compose.yaml` to change the port or to add more re
 ```bash
     docker-compose up
 ```
+or with podman:
+```bash
+    podman-compose --podman-build-args='--format docker' up
+```
 To start the Python client, in another console, run:
 ```bash
     python -um client.main
 ```
 
 In case of permission errors, use `chown -R 1000:1000` on heaps or `chmod -R a+rwX` on AFP.
-
+If you use podman, do `podman build -t qisabelle-server -f ServerDockerfile --format docker .` before.
 
 ## Caveats
-* Initializing Isabelle (API call `openIsabelleSession`) can take a dozen seconds on a powerful server. And you need to do it every time you change the loaded Isabelle session (so every time you want a different set of theories available without building from scratch).
+* Initializing Isabelle (API call `openIsabelleSession`) can take a dozen seconds on a powerful server. And you need to do it every time you change the loaded Isabelle session (so every time you want a different set of pre-built in-heap theories available).
 * When Sledgehammer is used, timeouts make it hard to get reproducible results, success depends on server load, computing power and just random factors.
 
 ## Heaps – details
@@ -129,7 +133,7 @@ Note that heaps include absolute paths, unfortunately, so they cannot be moved a
 
 ### Building your own heap
 1. Clone the latest version of AFP (~700MB temporarily) and take just the theory files (~300MB).
-You can also select a specific tag, branch, or revision (see [here](https://foss.heptapod.net/isa-afp/afp-devel/-/commits/)) using `hg clone -r Isabelle2023`.
+You can also select a specific tag, branch, or revision (see [here](https://foss.heptapod.net/isa-afp/afp-devel/-/commits/)) using `hg clone -r Isabelle2024`.
 ```bash
     hg clone https://foss.heptapod.net/isa-afp/afp-devel
     cd afp-devel
@@ -140,42 +144,42 @@ You can also select a specific tag, branch, or revision (see [here](https://foss
     rm -r afp-devel
 ```
 
-2. Build all of AFP as system heaps. This takes ~5h on a powerful server and produces ~40GB.
+2. Build all of AFP as system heaps. This takes ~5h on a powerful server and produces ~30-40GB.
 Timeout errors are normal, just repeat the command to retry failed sessions.
 You can Ctrl+C and restart to continue at any time.
 Note this will modify the AFP thys directory (some theories generate code);
 if you mount it as read-only, a few theories will fail (which would be OK).
 The `-j` option specifies the number of parallel workers, more than 30 is probably waste.
 ```bash
-    mkdir -p dockerheaps/Isabelle2023_afp_$AFP_ID
-    chmod a+rwx dockerheaps/Isabelle2023_afp_$AFP_ID
+    mkdir -p dockerheaps/Isabelle2024_afp_$AFP_ID
+    chmod a+rwx dockerheaps/Isabelle2024_afp_$AFP_ID
     chmod -R a+rwX afp_$AFP_ID/
     docker run -it --rm \
-        -v $(pwd)/afp_$AFP_ID:/afp \
-        -v $(pwd)/dockerheaps/Isabelle2023_afp_$AFP_ID:/home/isabelle/Isabelle/heaps \
+        -v $(pwd)/afp_$AFP_ID:/afp:z \
+        -v $(pwd)/dockerheaps/Isabelle2024_afp_$AFP_ID:/home/isabelle/Isabelle/heaps:z \
         qisabelle-server \
         isabelle build -b \
         -o system_heaps=true \
-        -j 30 -o timeout_scale=3 \
+        -j 4 -o timeout_scale=3 \
         -D /afp/thys
 ```
-You can use `-D /afp/thys/Hello_World` for testing (~7 min, 370MB of heaps)
+You can use `-D /afp/thys/Hello_World` for testing (~7 min, 370MB of heaps).
 
 3. Optionally, compress and upload the heaps (and modified theories). This takes a few hours.
 ```bash
 tar --gzip -cf afp_$AFP_ID.tar.gz afp_$AFP_ID/
 cd dockerheaps
-tar -cf Isabelle2023_afp_$AFP_ID.tar Isabelle2023_afp_$AFP_ID/
-brotli -q 5 --rm Isabelle2023_afp_$AFP_ID.tar
+tar -cf Isabelle2024_afp_$AFP_ID.tar Isabelle2024_afp_$AFP_ID/
+brotli -q 5 --rm Isabelle2024_afp_$AFP_ID.tar
 cd ..
-scp afp_$AFP_ID.tar.gz dockerheaps/Isabelle2023_afp_$AFP_ID.tar.br hetzner:isabelle_heaps/
-rm afp_$AFP_ID.tar.gz dockerheaps/Isabelle2023_afp_$AFP_ID.tar.br
+scp afp_$AFP_ID.tar.gz dockerheaps/Isabelle2024_afp_$AFP_ID.tar.br hetzner:isabelle_heaps/
+rm afp_$AFP_ID.tar.gz dockerheaps/Isabelle2024_afp_$AFP_ID.tar.br
 ```
 <!-- Gzip is 11GB in ? ; quality 5 is 8.6GB in 25 min; quality 7 is 8.4G in 1h ; quality 9 is 8.3G in 5h30; quality 11 is ? in >36h -->
 
 ## Development
 ### Client requirements
-The Python client only uses standard libraries with Python >=3.10.
+The Python client only uses standard libraries with Python ≥3.10.
 
 It is recommended to use mypy and ruff (or black, isort, flake8) for development.
 
@@ -189,10 +193,18 @@ To run tests inside it:
 ```
 
 ### Scala-Isabelle development version
-At the moment to work locally (without docker) you will need to install JDK 17, [SBT](https://www.scala-sbt.org/1.x/docs/Installing-sbt-on-Linux.html), and use the git version of [scala-isabelle](https://github.com/dominique-unruh/scala-isabelle):
+At the moment to work locally (without docker) you will need to install JDK ≥17, [SBT](https://www.scala-sbt.org/1.x/docs/Installing-sbt-on-Linux.html), and use the git version of [scala-isabelle](https://github.com/dominique-unruh/scala-isabelle):
 ```bash
     cd ..
-    git clone https://github.com/dominique-unruh/scala-isabelle.git
+    curl -L https://isabelle.in.tum.de/dist/Isabelle2024_linux.tar.gz -O
+    tar -xf Isabelle2024_linux.tar.gz
+    # Editing .env should be enough, but you could also make symlinks:
+    # ln -sT Isabelle2024 Isabelle
+    # ln -sT /home/isabelle `pwd`
+    # ln -sT qisabelle/dockerheapds/Isabelle2024_afp_$AFP_ID  /home/isabelle/Isabelle/heaps
+    # ln -sT /afp qisabelle/afp_$AFP_ID
+    git clone -b test2024 --single-branch https://github.com/marcinwrochna/scala-isabelle.git
+    # Or if upstream is updated: git clone https://github.com/dominique-unruh/scala-isabelle.git
     cd scala-isabelle
     sbt publishLocal
     cd ../qisabelle

@@ -9,7 +9,7 @@ class TestEnvironment extends AnyFunSuite {
 
   val isabelleDir = env.get("ISABELLE_DIR") map {
     os.FilePath(_).resolveFrom(os.pwd)
-  } getOrElse (os.pwd / "Isabelle2023")
+  } getOrElse (os.pwd / "Isabelle2024")
   println(s"isabelleDir = $isabelleDir")
 
   val afpDir = os.FilePath(env("AFP_DIR")).resolveFrom(os.pwd)
