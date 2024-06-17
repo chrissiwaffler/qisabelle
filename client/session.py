@@ -6,6 +6,8 @@ from typing import Any, Optional, cast
 import requests
 from typing_extensions import Self
 
+from .extractions import ExtractedTheory
+
 JSON = dict[str, Any]
 
 
@@ -141,6 +143,10 @@ class QIsabelleSession:
             {"stateName": state_name, "addedFacts": added_facts, "deletedFacts": deleted_facts},
         )
         return cast(str, r["proof"])
+
+    def extract_theory(self, theory_path: Path) -> ExtractedTheory:
+        r = self._post("/extractTheory", {"theoryPath": str(theory_path)})
+        return cast(ExtractedTheory, r)
 
 
 def get_exception_kind(e: Exception) -> str:

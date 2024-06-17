@@ -11,3 +11,9 @@ services:
       replicas: 1
     ports:
     - "127.0.0.1:17000:17000/tcp"
+    ulimits:
+      nproc: 63000
+      nofile:
+        soft: 64000  # default docker limit of 1024 is too low.
+        hard: 64000
+    shm_size: '20gb'

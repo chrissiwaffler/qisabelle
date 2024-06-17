@@ -1,4 +1,5 @@
 import os
+import pprint
 import textwrap
 import time
 from collections import defaultdict
@@ -13,6 +14,7 @@ from .utils import read_env_dict
 def main() -> None:
     test_new_theory()
     # test_going_into_theory()
+    # test_extract_session()
     # test_pisa()
 
 
@@ -46,12 +48,12 @@ def test_new_theory() -> None:
 
 
 def test_going_into_theory() -> None:
-    p = Path("/home/isabelle/Isabelle/src/HOL/Examples/Seq.thy")
-    with QIsabelleSession(theory_path=p) as session:
+    thy_file = Path("/home/isabelle/Isabelle/src/HOL/Examples/Seq.thy")
+    with QIsabelleSession(theory_path=thy_file) as session:
         # Load all the theory until a given lemma statement, inclusive, store as "state0".
         lemma = 'lemma reverse_reverse: "reverse (reverse xs) = xs"'
         is_proof_done, proof_goals = session.load_theory(
-            p, lemma, inclusive=True, new_state_name="state0"
+            thy_file, lemma, inclusive=True, new_state_name="state0"
         )
         print(session.describe_state("state0"))
         assert not is_proof_done
@@ -60,6 +62,23 @@ def test_going_into_theory() -> None:
         proof = "by (induct xs) (simp_all add: reverse_conc)"
         is_proof_done, proof_goals = session.execute("state0", proof, "state1")
         assert is_proof_done and not proof_goals
+
+
+def test_extract_session() -> None:
+    """Show the JSONs extracted from an example session's theories."""
+    ROOT_DIR = Path(__file__).parent.parent
+    ENVIRONMENT = read_env_dict(ROOT_DIR / ".env") | os.environ
+    AFP_DIR = Path(ENVIRONMENT["AFP_DIR"])
+    if not AFP_DIR.is_absolute():
+        AFP_DIR = ROOT_DIR / AFP_DIR
+
+    session_name = "BNF_Operations"
+    session_dir = AFP_DIR / "thys" / session_name
+    assert (session_dir / "ROOT").exists()
+    with QIsabelleSession(session_name=session_name, session_roots=[Path("/afp/thys")]) as session:
+        for thy_file in session_dir.glob("*.thy"):
+            print(f"Loading {thy_file}")
+            pprint.pp(session.extract_theory(Path("/afp") / thy_file.relative_to(AFP_DIR)))
 
 
 def test_pisa() -> None:

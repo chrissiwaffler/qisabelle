@@ -1,6 +1,7 @@
 package server
 
 import scala.language.postfixOps
+import scala.collection.mutable
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future, TimeoutException, blocking}
 import scala.util.matching.Regex
@@ -176,6 +177,69 @@ class ParsedTheory(
     }
 
     state
+  }
+
+  /** Execute the whole theory and extract JSON describing all transitions and states throughout.
+    *
+    * @param nDebug
+    *   Print this many first & last non-empty transitions & resulting states.
+    */
+  @throws(classOf[IsabelleMLException])
+  @throws(classOf[TimeoutException])
+  def extractAll(nDebug: Integer = 0): ujson.Obj = {
+    var state: ToplevelState = ToplevelState()
+    val nonEmptyTransitions  = transitions.filter(!_._2.trim.isEmpty)
+    var extractions          = mutable.Buffer[ujson.Value]()
+
+    for (((transition, text), i) <- nonEmptyTransitions.zipWithIndex) {
+      if (debug) {
+        if (i < nDebug || i >= nonEmptyTransitions.length - nDebug)
+          println(ParsedTheory.describeTransition(transition, text))
+        else
+          print(".") // Progress indicator.
+        System.out.flush()
+      }
+
+      val newState = transition.execute(state)
+      state = newState
+
+      if (debug && (i < nDebug || i >= nonEmptyTransitions.length - nDebug))
+        println(ParsedTheory.describeState(state))
+
+      val position = transition.position
+      extractions += ujson.Obj(
+        "transition" ->
+          ujson.Obj(
+            "name"        -> transition.name,
+            "text"        -> text,
+            "position" -> ujson.Obj(
+              "line"      -> position.line.get,
+              "offset"    -> position.offset.get,
+              "endOffset" -> position.endOffset.get
+            )
+          ),
+        "state" ->
+          ujson.Obj(
+            "mode"        -> state.mode.toString,
+            "proofState"  -> state.proofStateDescription,
+            "localTheory" -> state.localTheoryDescription,
+            "proofLevel"  -> state.proofLevel
+          )
+      )
+    }
+
+    ujson.Obj(
+      "theory" -> ujson.Obj(
+        "path"        -> path.toString,
+        "sessionName" -> sessionName,
+        "name"        -> theoryHeader.name,
+        "imports"     -> theoryHeader.imports,
+        "importNames" -> theoryHeader.imports.map(
+          ParsedTheory.getImportName(_, sessionName, masterDir.toNIO)
+        )
+      ),
+      "extractions" -> extractions
+    )
   }
 }
 
