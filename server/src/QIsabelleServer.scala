@@ -13,8 +13,8 @@ import org.checkerframework.checker.units.qual
 
 case class QIsabelleRoutes()(implicit cc: castor.Context, log: cask.Logger) extends cask.Routes {
   // These are the timeouts originally used in PISA.
-  val perTransitionTimeout: Duration   = 10.seconds
-  val parseAndExecuteTimeout: Duration = Duration.Inf
+  var perTransitionTimeout: Duration   = 10.seconds
+  var parseAndExecuteTimeout: Duration = Duration.Inf
   val softHammerTimeout: Duration      = 30.seconds
   val midHammerTimeout: Duration       = 35.seconds
   val hardHammerTimeout: Duration      = 40.seconds
@@ -31,6 +31,14 @@ case class QIsabelleRoutes()(implicit cc: castor.Context, log: cask.Logger) exte
     "Hello from QIsabelle"
   }
 
+  def durationToDouble(d: Duration): Double = {
+    if (d == Duration.Inf) 0 else d.div(1.second)
+  }
+
+  def doubleToDuration(d: Double): Duration = {
+    if (d == 0) Duration.Inf else d.seconds
+  }
+
   /** Start an Isabelle process by loading a given session.
     *
     * @param sessionName
@@ -45,6 +53,10 @@ case class QIsabelleRoutes()(implicit cc: castor.Context, log: cask.Logger) exte
     * @param workingDir
     *   Working directory for the Isabelle process. This doesn't influence a lot, mostly how
     *   relative paths are resolved for imports that are not found in the session heap.
+    * @param perTransitionTimeoutSeconds
+    *   Default timeout for individual transitions (in `execute` and `extractAll`). 0 means no timeout.
+    * @param executeTimeoutSeconds
+    *   Default timeout for an `execute` call (which can have many transitions). 0 means no timeout.
     *
     * @return
     *   {"success": "success"} or {"error": str, "traceback": str}
@@ -53,9 +65,15 @@ case class QIsabelleRoutes()(implicit cc: castor.Context, log: cask.Logger) exte
   def openIsabelleSession(
       sessionName: String,
       sessionRoots: Seq[String],
-      workingDir: String
+      workingDir: String,
+      perTransitionTimeoutSeconds: Double = durationToDouble(perTransitionTimeout),
+      executeTimeoutSeconds: Double = durationToDouble(parseAndExecuteTimeout)
   ): ujson.Obj = {
     println("openIsabelleSession: start")
+
+    perTransitionTimeout = doubleToDuration(perTransitionTimeoutSeconds)
+    parseAndExecuteTimeout = doubleToDuration(executeTimeoutSeconds)
+
     try {
       session = new IsabelleSession(
         isabelleDir = os.Path("/home/isabelle/Isabelle/"),
@@ -81,24 +99,25 @@ case class QIsabelleRoutes()(implicit cc: castor.Context, log: cask.Logger) exte
     }
   }
 
-  /** Start an Isabelle process by loading the session of a given theory.
-    *
-    * This does not load the theory itself, you still need to call loadTheory() afterwards.
+  /** Guess the session name, session roots, and working directory for a given theory file.
     *
     * @param theoryPath
-    *   Path to .thy file from which we guess the session to load, along with session roots and
-    *   working directiory. E.g.: '/home/isabelle/Isabelle/src/HOL/Main.thy'
-    *
+    *   Path to .thy file.
     * @return
-    *   {"success": "success"} or {"error": str, "traceback": str}
+    *   {"sessionName": str, "sessionRoots": [str], "workingDir": str}
+    *   or {"error": str, "traceback": str}
     */
-  @cask.postJson("/openIsabelleSessionForTheory")
-  def openIsabelleSessionForTheory(theoryPath: String): ujson.Obj = {
+  @cask.postJson("/guessIsabelleSession")
+  def guessIsabelleSession(theoryPath: String): ujson.Obj = {
     try {
       val sessionName  = IsabelleSession.guessSessionName(os.Path(theoryPath))
       val sessionRoots = IsabelleSession.guessSessionRoots(os.Path(theoryPath))
-      val workingDir   = os.Path(theoryPath) / os.up
-      openIsabelleSession(sessionName, sessionRoots.map(_.toString), workingDir.toString)
+      val workingDir   = os.Path("/home/isabelle/")  // os.Path(theoryPath) / os.up
+      return ujson.Obj(
+        "sessionName"  -> sessionName,
+        "sessionRoots" -> sessionRoots.map(_.toString),
+        "workingDir"   -> workingDir.toString
+      )
     } catch {
       case e: Throwable => exceptionJson(e)
     }
@@ -336,7 +355,10 @@ case class QIsabelleRoutes()(implicit cc: castor.Context, log: cask.Logger) exte
     try {
       implicit val isabelle = session.isabelle
       val parsedTheory = new ParsedTheory(os.Path(theoryPath), session.sessionName, debug = true)
-      return parsedTheory.extractAll(nDebug = 3)
+      return parsedTheory.extractAll(
+        perTransitionTimeout = perTransitionTimeout,
+        nDebug = 3
+      )
     } catch {
       case e: Throwable => exceptionJson(e)
     }

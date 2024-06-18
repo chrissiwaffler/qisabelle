@@ -181,15 +181,21 @@ class ParsedTheory(
 
   /** Execute the whole theory and extract JSON describing all transitions and states throughout.
     *
+    * @param timeout
+    *   Timeout for each transition (see `Transition.execute`).
     * @param nDebug
     *   Print this many first & last non-empty transitions & resulting states.
     */
   @throws(classOf[IsabelleMLException])
   @throws(classOf[TimeoutException])
-  def extractAll(nDebug: Integer = 0): ujson.Obj = {
+  def extractAll(
+      perTransitionTimeout: Duration = Duration.Inf,
+      nDebug: Integer = 0
+  ): ujson.Obj = {
     var state: ToplevelState = ToplevelState()
     val nonEmptyTransitions  = transitions.filter(!_._2.trim.isEmpty)
     var extractions          = mutable.Buffer[ujson.Value]()
+    var time                 = System.currentTimeMillis()
 
     for (((transition, text), i) <- nonEmptyTransitions.zipWithIndex) {
       if (debug) {
@@ -200,23 +206,28 @@ class ParsedTheory(
         System.out.flush()
       }
 
-      val newState = transition.execute(state)
+      val newState = transition.execute(state, perTransitionTimeout)
       state = newState
 
       if (debug && (i < nDebug || i >= nonEmptyTransitions.length - nDebug))
         println(ParsedTheory.describeState(state))
 
       val position = transition.position
+      val newTime  = System.currentTimeMillis()
+      val duration = (newTime - time).toDouble / 1000.0
+      time = newTime
+
       extractions += ujson.Obj(
         "transition" ->
           ujson.Obj(
-            "name"        -> transition.name,
-            "text"        -> text,
+            "name" -> transition.name,
+            "text" -> text,
             "position" -> ujson.Obj(
               "line"      -> position.line.get,
               "offset"    -> position.offset.get,
               "endOffset" -> position.endOffset.get
-            )
+            ),
+            "time" -> duration
           ),
         "state" ->
           ujson.Obj(

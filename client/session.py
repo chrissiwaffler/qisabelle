@@ -28,10 +28,13 @@ class QIsabelleSession:
         session_roots: Optional[list[Path]] = None,
         theory_path: Optional[Path] = None,
         port: int = 17000,
+        per_transition_timeout: float = 10.,
+        execute_timeout: float = 0.,
         debug: bool = True,
     ):
         """
         Either theory_path or (session_name and session_roots) must be provided.
+        Timeouts are in (float) seconds, 0 means no timeout.
         """
         self.port = port
         self.debug = debug
@@ -42,21 +45,25 @@ class QIsabelleSession:
                 session_name is None and session_roots is None
             ), "Cannot use both theory_path or session_name."
             r = self._post(
-                "/openIsabelleSessionForTheory",
+                "/guessIsabelleSession",
                 {"theoryPath": str(theory_path)},
             )
-        else:
-            assert (
-                session_name is not None and session_roots is not None
-            ), "Either theory_path or (session_name and session_roots) must be provided."
-            r = self._post(
-                "/openIsabelleSession",
-                {
-                    "sessionName": session_name,
-                    "sessionRoots": [str(p) for p in session_roots],
-                    "workingDir": "/home/isabelle/",
-                },
-            )
+            session_name = r["sessionName"]
+            session_roots = [Path(p) for p in r["sessionRoots"]]
+
+        assert (
+            session_name is not None and session_roots is not None
+        ), "Either theory_path or (session_name and session_roots) must be provided."
+        r = self._post(
+            "/openIsabelleSession",
+            {
+                "sessionName": session_name,
+                "sessionRoots": [str(p) for p in session_roots],
+                "workingDir": "/home/isabelle/",
+                "perTransitionTimeoutSeconds": per_transition_timeout,
+                "executeTimeoutSeconds": execute_timeout
+            },
+        )
         assert r == {"success": "success"}, r
         if debug:
             print("QIsabelleSession initialized.")
