@@ -6,16 +6,41 @@ services:
     volumes:
       - ./afp_$AFP_ID:/afp:ro,z
       - ./dockerheaps/Isabelle2024_afp_$AFP_ID:/home/isabelle/Isabelle/heaps:ro,z
+
+      # anonymous volumes for complete isolation
+      # docker manages storage automatically
+      - /home/isabelle/.isabelle
+      - /tmp/isabelle
+      - /home/isabelle/sessions
+
+    environment:
+      # unique session name per replica to prevent SQLite conflicts
+      - ISABELLE_SESSION_NAME=HOL_$(hostname)
+      - ISABELLE_WORK_DIR=/tmp/isabelle
+
     deploy:
       mode: replicated
-      replicas: 1
-      # replicas: 4
+      replicas: 32
+      # replicas: 512
     ports:
-    - "127.0.0.1:17000:17000/tcp"
-    # - "127.0.0.1:17000-17003:17000/tcp"
+      # single replica config:
+      # - "127.0.0.1:17000:17000/tcp"
+
+      # multiple replica config:
+      # 32 ports will be accisble on 127.0.0.1:17000 to 127.0.0.1:17031
+      - "127.0.0.1:17000-17031:17000/tcp"
+      # for 512 instances
+      # - "127.0.0.1:17000-17511:17000/tcp"
     ulimits:
       nproc: 63000
       nofile:
-        soft: 64000  # default docker limit of 1024 is too low.
+        soft: 64000 # default docker limit of 1024 is too low.
         hard: 64000
-    shm_size: '20gb'
+    shm_size: "20gb"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:17000/"]
+      interval: 30s
+      timeout: 30s
+      retries: 3
+      start_period: 60s
