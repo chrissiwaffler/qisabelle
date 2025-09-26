@@ -1,3 +1,48 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "qisabelle"
+version = "0.1.0"
+description = "Python client for QIsabelle theorem prover server"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+]
+dependencies = ["requests>=2.28.0", "typing-extensions>=4.5.0"]
+
+[project.optional-dependencies]
+dev = ["mypy>=1.13.0", "ruff>=0.8.0", "black>=23.0.0", "isort>=5.12.0"]
+
+[project.urls]
+Homepage = "https://github.com/qisabelle/qisabella"
+Repository = "https://github.com/qisabelle/qisabella"
+Issues = "https://github.com/qisabelle/qisabella/issues"
+
+[tool.setuptools.packages.find]
+where = ["."]
+exclude = [
+  "server*",
+  "test_theorems*",
+  "dockerheaps*",
+  "afp_2024_*",
+  "logs*",
+  "data*",
+  "models*",
+]
+
+[tool.setuptools.package-data]
+"*" = ["*.py", "*.yaml", "*.yml", "*.json"]
+
 [tool.mypy]
 strict = true
 disallow_untyped_calls = true
@@ -12,12 +57,6 @@ show_column_numbers = true
 strict_equality = true
 strict_concatenate = true
 implicit_reexport = false
-# We don't use namespace packages, but this is needed to enable explicit_package_bases.
-# namespace_packages = true
-# Needed so that mypy doesn't report two files with the same name as duplicate modules.
-# explicit_package_bases = true
-# follow_imports = silent
-
 
 [tool.ruff]
 select = ["W", "E", "F"]
@@ -30,5 +69,3 @@ line-length = 100
 [tool.isort]
 profile = "black"
 line_length = 100
-
-
